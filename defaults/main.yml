@@ -1,0 +1,4 @@
+# Wine
+wine_package_name: "winehq-stable"
+wine_gpg_key_url: "https://dl.winehq.org/wine-builds/winehq.key"
+wine_gpg_keyring: "/etc/apt/keyrings/winehq-archive.key"

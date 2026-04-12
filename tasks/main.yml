@@ -1,0 +1,70 @@
+---
+# Based on: https://wiki.winehq.org/Ubuntu and https://wiki.winehq.org/Debian
+# Installs winehq-stable from the official WineHQ repo (not the outdated system package)
+
+- name: Check if Wine is already installed
+  ansible.builtin.command: dpkg-query -W {{ wine_package_name }}
+  register: wine_installed
+  failed_when: false
+  changed_when: false
+
+- name: Enable i386 architecture (required for Wine 32-bit support)
+  ansible.builtin.command: dpkg --add-architecture i386
+  become: true
+  changed_when: true
+  when: wine_installed.rc != 0
+
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+  when: wine_installed.rc != 0
+
+- name: Download WineHQ GPG key
+  ansible.builtin.get_url:
+    url: "{{ wine_gpg_key_url }}"
+    dest: "{{ wine_gpg_keyring }}"
+    mode: '0644'
+  become: true
+  when: wine_installed.rc != 0
+
+# Ubuntu and Linux Mint use the Ubuntu WineHQ repo, Debian uses its own path
+- name: Set WineHQ repository base URL
+  ansible.builtin.set_fact:
+    wine_repo_url: "{{ 'https://dl.winehq.org/wine-builds/debian' if ansible_distribution == 'Debian' else 'https://dl.winehq.org/wine-builds/ubuntu' }}"
+  when: wine_installed.rc != 0
+
+- name: Add WineHQ apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,i386 signed-by={{ wine_gpg_keyring }}] {{ wine_repo_url }}/ {{ ubuntu_codename }} main"
+    state: present
+    filename: winehq
+    update_cache: true
+  become: true
+  when: wine_installed.rc != 0
+
+- name: Install Wine stable
+  ansible.builtin.apt:
+    name: "{{ wine_package_name }}"
+    state: present
+    update_cache: true
+    install_recommends: true
+  become: true
+  when: wine_installed.rc != 0
+
+# NOTE: wine-mono is NOT available as an apt package — install manually if needed:
+#   Download from: https://dl.winehq.org/wine/wine-mono/
+#   Install:  wine msiexec /i wine-mono-*.msi
+#   Needed for: running .NET applications under Wine
+
+# NOTE: GPU drivers for Wine — install manually if needed for gaming.
+# Not automated here because driver selection is GPU-specific and can conflict in VMs.
+#
+# For Intel / AMD (mesa):
+#   sudo apt install libgl1:i386 libglx-mesa0:i386 libegl1:i386 mesa-vulkan-drivers:i386 libvulkan1:i386
+#
+# For NVIDIA:
+#   sudo apt install libvulkan1:i386 libvulkan1
+#   (check installed nvidia driver version first: nvidia-smi)
