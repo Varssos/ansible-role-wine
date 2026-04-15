@@ -26,4 +26,5 @@ galaxy_info:
     - windows
     - compatibility
 
-dependencies: []
+dependencies:
+  - role: ubuntu-codename

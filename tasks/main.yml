@@ -11,7 +11,7 @@
 - name: Enable i386 architecture (required for Wine 32-bit support)
   ansible.builtin.command: dpkg --add-architecture i386
   become: true
-  changed_when: true
+  changed_when: false  # idempotent — no effect if i386 is already enabled
   when: wine_installed.rc != 0
 
 - name: Ensure apt keyrings directory exists
