@@ -22,12 +22,39 @@
   become: true
   when: wine_installed.rc != 0
 
-- name: Download WineHQ GPG key
+- name: Remove any existing broken WineHQ keyring
+  ansible.builtin.file:
+    path: "{{ wine_gpg_keyring }}"
+    state: absent
+  become: true
+  when: wine_installed.rc != 0
+
+- name: Download WineHQ GPG key (ASCII format)
   ansible.builtin.get_url:
     url: "{{ wine_gpg_key_url }}"
-    dest: "{{ wine_gpg_keyring }}"
+    dest: /tmp/winehq.key
+    mode: '0644'
+  become: false
+  when: wine_installed.rc != 0
+
+- name: Convert WineHQ GPG key to binary format
+  ansible.builtin.shell: |
+    gpg --dearmor < /tmp/winehq.key > {{ wine_gpg_keyring }}
+  become: true
+  when: wine_installed.rc != 0
+
+- name: Set correct permissions on WineHQ keyring
+  ansible.builtin.file:
+    path: "{{ wine_gpg_keyring }}"
     mode: '0644'
   become: true
+  when: wine_installed.rc != 0
+
+- name: Clean up temporary key file
+  ansible.builtin.file:
+    path: /tmp/winehq.key
+    state: absent
+  become: false
   when: wine_installed.rc != 0
 
 # Ubuntu and Linux Mint use the Ubuntu WineHQ repo, Debian uses its own path
