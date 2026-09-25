@@ -60,7 +60,7 @@
 # Ubuntu and Linux Mint use the Ubuntu WineHQ repo, Debian uses its own path
 - name: Set WineHQ repository base URL
   ansible.builtin.set_fact:
-    wine_repo_url: "{{ 'https://dl.winehq.org/wine-builds/debian' if ansible_distribution == 'Debian' else 'https://dl.winehq.org/wine-builds/ubuntu' }}"
+    wine_repo_url: "{{ 'https://dl.winehq.org/wine-builds/debian' if ansible_facts[\"distribution\"] == 'Debian' else 'https://dl.winehq.org/wine-builds/ubuntu' }}"
   when: wine_installed.rc != 0
 
 - name: Add WineHQ apt repository
@@ -69,6 +69,30 @@
     state: present
     filename: winehq
     update_cache: true
+  become: true
+  when: wine_installed.rc != 0
+
+# Third-party amd64-only repos (e.g. Ondrej's PHP PPA) can upgrade libgd3 past the
+# version available for i386, breaking its Multi-Arch:same pairing and blocking
+# wine-stable-i386's dependency chain with "held broken packages".
+- name: Pin libgd3 to the Ubuntu archive so amd64/i386 versions stay in sync
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/wine-libgd3-pin
+    mode: '0644'
+    content: |
+      Package: libgd3
+      Pin: release o=Ubuntu
+      Pin-Priority: 1001
+  become: true
+  when: wine_installed.rc != 0
+
+- name: Align libgd3 amd64/i386 versions before installing Wine
+  ansible.builtin.apt:
+    name:
+      - libgd3
+      - libgd3:i386
+    state: present
+    allow_downgrade: true
   become: true
   when: wine_installed.rc != 0
 
