@@ -61,16 +61,23 @@
 - name: Set WineHQ repository base URL
   ansible.builtin.set_fact:
     wine_repo_url: "{{ 'https://dl.winehq.org/wine-builds/debian' if ansible_facts[\"distribution\"] == 'Debian' else 'https://dl.winehq.org/wine-builds/ubuntu' }}"
-  when: wine_installed.rc != 0
+
+- name: Remove WineHQ repository entry with unsupported i386 architecture
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64,i386 signed-by={{ wine_gpg_keyring }}] {{ wine_repo_url }}/ {{ ubuntu_codename }} main"
+    state: absent
+    filename: winehq
+    update_cache: false
+  become: true
+  when: ubuntu_codename == 'resolute'
 
 - name: Add WineHQ apt repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch=amd64,i386 signed-by={{ wine_gpg_keyring }}] {{ wine_repo_url }}/ {{ ubuntu_codename }} main"
+    repo: "deb [arch={{ 'amd64' if ubuntu_codename == 'resolute' else 'amd64,i386' }} signed-by={{ wine_gpg_keyring }}] {{ wine_repo_url }}/ {{ ubuntu_codename }} main"
     state: present
     filename: winehq
     update_cache: true
   become: true
-  when: wine_installed.rc != 0
 
 # Third-party amd64-only repos (e.g. Ondrej's PHP PPA) can upgrade libgd3 past the
 # version available for i386, breaking its Multi-Arch:same pairing and blocking
